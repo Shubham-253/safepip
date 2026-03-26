@@ -46,7 +46,7 @@ class SecurityReport:
         lines = [
             "",
             "━" * 60,
-            f"  safepip Security Report",
+            f"  pipsentinel Security Report",
             f"  Package : {self.package}=={self.version}",
             f"  Risk    : {self.risk_level}",
             f"  Verdict : {'✅ SAFE TO INSTALL' if self.safe_to_install else '🚨 DO NOT INSTALL'}",

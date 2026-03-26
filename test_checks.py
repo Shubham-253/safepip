@@ -20,7 +20,7 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from safepip.checks import (
+from pipsentinel.checks import (
     PackageMetadata,
     CheckResult,
     check_git_tag_divergence,
@@ -33,13 +33,13 @@ from safepip.checks import (
     check_release_timestamp_delta,
     check_post_install_record_diff,
 )
-from safepip.lockfile import (
+from pipsentinel.lockfile import (
     LockfileManager,
     LockEntry,
     build_lock_entry,
     verify_against_lock,
 )
-from safepip.report import SecurityReport
+from pipsentinel.report import SecurityReport
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

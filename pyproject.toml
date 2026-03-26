@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "safepip"
+name = "pipsentinel"
 version = "0.2.1"
 description = "Hack-proof pip: supply chain security checks + import sandbox before every install"
 readme = "README.md"
@@ -30,19 +30,19 @@ classifiers = [
 ]
 
 [project.scripts]
-safepip = "safepip.cli:main"
+pipsentinel = "pipsentinel.cli:main"
 
 [project.urls]
-Source    = "https://github.com/yourorg/safepip"
-Issues    = "https://github.com/yourorg/safepip/issues"
-Changelog = "https://github.com/yourorg/safepip/blob/main/CHANGELOG.md"
+Source    = "https://github.com/Shubham-253/pipsentinel"
+Issues    = "https://github.com/Shubham-253/pipsentinel/issues"
+Changelog = "https://github.com/Shubham-253/pipsentinel/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where   = ["."]
-include = ["safepip*"]
+include = ["pipsentinel*"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
 
 [tool.setuptools.package-data]
-safepip = ["py.typed"]
+pipsentinel = ["py.typed"]

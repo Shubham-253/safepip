@@ -1,12 +1,12 @@
 """
-CLI entry point for safepip.
+CLI entry point for pipsentinel.
 
 Usage:
-    safepip install requests
-    safepip install litellm==1.82.6
-    safepip audit                        # post-install site-packages scan
-    safepip check litellm==1.82.8        # check only, don't install
-    safepip check requests --json        # output JSON report
+    pipsentinel install requests
+    pipsentinel install numpy==1.26.4
+    pipsentinel audit                    # post-install site-packages scan
+    pipsentinel check somepackage==1.0.0 # check only, don't install
+    pipsentinel check requests --json    # output JSON report
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if "==" in pkg:
         pkg, version = pkg.split("==", 1)
 
-    print(f"\n🔍 safepip: checking {pkg}" + (f"=={version}" if version else " (latest)") + " ...")
+    print(f"\n🔍 pipsentinel: checking {pkg}" + (f"=={version}" if version else " (latest)") + " ...")
 
     try:
         meta = fetch_package_metadata(pkg, version)
@@ -69,7 +69,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_audit(_args: argparse.Namespace) -> int:
-    print("\n🔎 safepip: auditing site-packages for suspicious .pth files ...\n")
+    print("\n🔎 pipsentinel: auditing site-packages for suspicious .pth files ...\n")
     result = check_post_install_pth()
     print(result)
     if not result.passed:
@@ -83,7 +83,7 @@ def cmd_audit(_args: argparse.Namespace) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="safepip",
+        prog="pipsentinel",
         description="Hack-proof pip: supply chain checks before every install.",
     )
     sub = parser.add_subparsers(dest="command", required=True)

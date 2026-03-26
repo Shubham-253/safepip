@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Optional
 
 
-DEFAULT_LOCK_PATH = Path.home() / ".safepip" / "safepip.lock"
+DEFAULT_LOCK_PATH = Path.home() / ".pipsentinel" / "pipsentinel.lock"
 
 
 @dataclass

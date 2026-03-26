@@ -1,27 +1,17 @@
 """
-TESTING GUIDE FOR SAFEPIP
-=========================
+TESTING GUIDE FOR PIPSENTINEL
+==============================
 
 Three levels of testing:
 
-  1. Unit tests (no network, pure functions)  — tests/test_checks.py + test_checks_v2.py
-  2. Integration tests (mocked network)       — tests/test_integration.py  (this file)
+  1. Unit tests (no network, pure functions)  — test_checks.py
+  2. Integration tests (mocked network)       — test_integration.py (this file)
   3. Manual smoke tests (real PyPI)           — see bottom of this file
 
 Run everything:
-    cd safepip/
     pip install pytest pytest-cov
-    python -m pytest tests/ -v
-    python -m pytest tests/ --cov=safepip --cov-report=term-missing
-
-Run one file:
-    python -m pytest tests/test_checks_v2.py -v
-
-Run one test:
-    python -m pytest tests/test_checks_v2.py::TestObfuscatedCode::test_exec_base64_detected -v
-
-Run with print output visible:
-    python -m pytest tests/ -v -s
+    python -m pytest -v
+    python -m pytest --cov=pipsentinel --cov-report=term-missing
 """
 
 from __future__ import annotations
@@ -38,10 +28,10 @@ from unittest.mock import patch, MagicMock, call
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from safepip.checks import PackageMetadata, CheckResult, fetch_package_metadata, check_multi_source_hash_consensus
-from safepip.lockfile import LockfileManager, LockEntry, build_lock_entry, verify_against_lock
-from safepip.report import SecurityReport
-from safepip.installer import safe_install
+from pipsentinel.checks import PackageMetadata, CheckResult, fetch_package_metadata, check_multi_source_hash_consensus
+from pipsentinel.lockfile import LockfileManager, LockEntry, build_lock_entry, verify_against_lock
+from pipsentinel.report import SecurityReport
+from pipsentinel.installer import safe_install
 
 
 # ── helpers shared across tests ───────────────────────────────────────────────
@@ -308,10 +298,10 @@ class TestSafeInstallLockfileFastPath(unittest.TestCase):
 
             with patch("urllib.request.urlopen", side_effect=mock_urlopen):
                 with patch("subprocess.run", return_value=pip_mock):
-                    with patch("safepip.installer.check_post_install_pth") as mock_audit:
-                        from safepip.checks import CheckResult
+                    with patch("pipsentinel.installer.check_post_install_pth") as mock_audit:
+                        from pipsentinel.checks import CheckResult
                         mock_audit.return_value = CheckResult("post_pth", True, "info", "clean", {})
-                        with patch("safepip.installer.check_post_install_record_diff") as mock_diff:
+                        with patch("pipsentinel.installer.check_post_install_record_diff") as mock_diff:
                             mock_diff.return_value = CheckResult("record_diff", True, "info", "clean", {})
                             report = safe_install(
                                 "safetestpkg", version="1.0.0",
@@ -446,7 +436,7 @@ class TestLiteLLMAttackSimulation(unittest.TestCase):
         return wheel, hashlib.sha256(wheel).hexdigest()
 
     def test_attack_wheel_detected_by_obfuscation_check(self):
-        from safepip.checks import check_obfuscated_code
+        from pipsentinel.checks import check_obfuscated_code
         wheel, _ = self._build_attack_wheel()
         result = check_obfuscated_code(wheel, "litellm-1.82.8-py3-none-any.whl")
         self.assertFalse(result.passed)
@@ -457,7 +447,7 @@ class TestLiteLLMAttackSimulation(unittest.TestCase):
         self.assertIn("litellm_init.pth", finding_files)
 
     def test_attack_wheel_detected_by_pth_check(self):
-        from safepip.checks import check_pth_files_in_wheel
+        from pipsentinel.checks import check_pth_files_in_wheel
         wheel, sha = self._build_attack_wheel()
         meta = make_meta(
             name="litellm", version="1.82.8",
@@ -483,7 +473,7 @@ class TestLiteLLMAttackSimulation(unittest.TestCase):
         self.assertIn("litellm_init.pth", str(result.detail))
 
     def test_no_git_tag_is_critical(self):
-        from safepip.checks import check_git_tag_divergence
+        from pipsentinel.checks import check_git_tag_divergence
         meta = make_meta(
             name="litellm", version="1.82.8",
             source_url="https://github.com/BerriAI/litellm",
@@ -506,8 +496,8 @@ class TestLiteLLMAttackSimulation(unittest.TestCase):
 
     def test_all_three_checks_fail_together(self):
         """All critical signals fire simultaneously, as they would have on March 24."""
-        from safepip.checks import check_git_tag_divergence, check_pth_files_in_wheel
-        from safepip.checks import check_obfuscated_code
+        from pipsentinel.checks import check_git_tag_divergence, check_pth_files_in_wheel
+        from pipsentinel.checks import check_obfuscated_code
 
         wheel, sha = self._build_attack_wheel()
 
@@ -573,9 +563,9 @@ def manual_smoke_requests():
     """Check requests 2.31.0 — known-good, should pass all checks."""
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from safepip.checks import fetch_package_metadata, check_git_tag_divergence, check_pth_files_in_wheel, check_pypi_provenance
-    from safepip.checks import check_obfuscated_code, check_wheel_record_integrity, check_release_timestamp_delta
-    from safepip.report import SecurityReport
+    from pipsentinel.checks import fetch_package_metadata, check_git_tag_divergence, check_pth_files_in_wheel, check_pypi_provenance
+    from pipsentinel.checks import check_obfuscated_code, check_wheel_record_integrity, check_release_timestamp_delta
+    from pipsentinel.report import SecurityReport
     import urllib.request
 
     print("\n=== Live smoke test: requests==2.31.0 ===")
@@ -605,7 +595,7 @@ def manual_smoke_check_only():
     """Run safepip check on numpy latest — no install."""
     import subprocess, sys
     result = subprocess.run(
-        [sys.executable, "-m", "safepip.cli", "check", "numpy"],
+        [sys.executable, "-m", "pipsentinel.cli", "check", "numpy"],
         capture_output=False,
     )
     return result.returncode

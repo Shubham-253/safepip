@@ -62,7 +62,7 @@ def safe_install(
     lock_mgr = LockfileManager(lock_path)
 
     if not quiet:
-        print(f"\n🔍 safepip: checking {package}" +
+        print(f"\n🔍 pipsentinel: checking {package}" +
               (f"=={version}" if version else " (latest)") + " ...")
 
     # ── 1. Metadata ──────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ def safe_install(
 
     if report.critical_failures and not force:
         print(
-            f"🚫 safepip: installation BLOCKED for {meta.name}=={version}.\n"
+            f"🚫 pipsentinel: installation BLOCKED for {meta.name}=={version}.\n"
             f"   {len(report.critical_failures)} critical check(s) failed.\n"
             f"   Use force=True to override (strongly discouraged).\n"
         )

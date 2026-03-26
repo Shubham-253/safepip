@@ -1,4 +1,4 @@
-# safepip
+# pipsentinel
 
 > **Hack-proof pip.** Supply chain security checks + import sandbox before every package install.
 
@@ -24,20 +24,20 @@ PyPI packages can be hijacked, tampered in transit, or silently backdoored throu
 | RECORD manifest integrity | Every file in the wheel vs its declared SHA-256 |
 | Release timestamp delta | PyPI upload vs git tag creation time — under 1 min = suspicious |
 | PyPI provenance | OIDC attestation — published from reproducible CI? |
-| Lockfile verification | Wheel SHA-256 against `~/.safepip/safepip.lock` — zero network on repeat installs |
+| Lockfile verification | Wheel SHA-256 against `~/.pipsentinel/pipsentinel.lock` — zero network on repeat installs |
 | Import sandbox | `import <pkg>` in isolated subprocess — no credentials, audit hook on all syscalls |
 | Honeypot bait | Fake AWS/SSH/Kube/GCP credentials in sandbox — read bait + network call = caught |
 | Post-install RECORD diff | What pip wrote to disk vs what RECORD declared |
 | Post-install `.pth` audit | Scans `site-packages` after install for suspicious `.pth` files |
 
-**Zero third-party dependencies.** safepip uses only the Python standard library. It has no supply chain of its own to attack.
+**Zero third-party dependencies.** pipsentinel uses only the Python standard library. It has no supply chain of its own to attack.
 
 ---
 
 ## Install
 
 ```bash
-pip install safepip
+pip install pipsentinel
 ```
 
 > **Bootstrap trust note:** The codebase is ~2,600 lines of stdlib-only Python — auditable in an afternoon. Read it before trusting it.
@@ -48,24 +48,24 @@ pip install safepip
 
 ```bash
 # Check AND install — blocks on any critical failure
-safepip install requests
-safepip install numpy==1.26.4
+pipsentinel install requests
+pipsentinel install numpy==1.26.4
 
 # Check only — no install
-safepip check somepackage==1.0.0
-safepip check requests --json
+pipsentinel check somepackage==1.0.0
+pipsentinel check requests --json
 
 # Audit current environment for suspicious .pth files
-safepip audit
+pipsentinel audit
 ```
 
 ### Clean package
 
 ```
-🔍 safepip: checking requests==2.31.0 ...
+🔍 pipsentinel: checking requests==2.31.0 ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  safepip Security Report
+  pipsentinel Security Report
   Package : requests==2.31.0
   Risk    : LOW
   Verdict : ✅ SAFE TO INSTALL
@@ -79,7 +79,7 @@ safepip audit
    • [sandbox_import] Sandbox clean: import completed (0.30s) — no network calls,
                       file reads, or subprocess spawns.
 
-🔒 Lock entry written: ~/.safepip/safepip.lock
+🔒 Lock entry written: ~/.pipsentinel/pipsentinel.lock
 📦 Installing: requests==2.31.0 --hash=sha256:58cd2187...
 ✅ requests==2.31.0 installed and verified.
 ```
@@ -87,10 +87,10 @@ safepip audit
 ### Malicious package (blocked)
 
 ```
-🔍 safepip: checking badpkg==2.0.0 ...
+🔍 pipsentinel: checking badpkg==2.0.0 ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  safepip Security Report
+  pipsentinel Security Report
   Package : badpkg==2.0.0
   Risk    : CRITICAL
   Verdict : 🚨 DO NOT INSTALL
@@ -115,7 +115,7 @@ safepip audit
 
 ```mermaid
 flowchart TD
-    START(["safepip install pkg==ver"])
+    START(["pipsentinel install pkg==ver"])
     META["Fetch PyPI metadata\n(name, version, wheel URLs)"]
     LOCK_HIT{"Lockfile\nhit?"}
     LOCK_VERIFY["Verify wheel SHA-256\nagainst local lock"]
@@ -215,9 +215,9 @@ if not result.passed:
 # .github/workflows/deps.yml
 - name: Secure install
   run: |
-    pip install safepip
-    cat requirements.txt | xargs -n1 safepip install
-    safepip audit
+    pip install pipsentinel
+    cat requirements.txt | xargs -n1 pipsentinel install
+    pipsentinel audit
     # exits 1 on critical failure → blocks the workflow
 ```
 
@@ -259,10 +259,10 @@ Populates the sandbox's fake home with realistic-format credentials:
 | `~/.config/gcloud/application_default_credentials.json` | Real JSON schema, fake refresh token |
 | `~/.env` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DATABASE_URL` |
 
-Credentials are unique per run and cryptographically useless — they fail real authentication. If the package reads one of these files *and then* makes a network call within 5 seconds, safepip flags the sequence as a credential stealer. This catches the env-var-conditional attack class — malware that checks `os.environ.get('AWS_ACCESS_KEY_ID')` before acting, which evades sandboxes with empty environments.
+Credentials are unique per run and cryptographically useless — they fail real authentication. If the package reads one of these files *and then* makes a network call within 5 seconds, pipsentinel flags the sequence as a credential stealer. This catches the env-var-conditional attack class — malware that checks `os.environ.get('AWS_ACCESS_KEY_ID')` before acting, which evades sandboxes with empty environments.
 
 ### Lockfile
-First install stores the wheel's SHA-256 and per-file RECORD in `~/.safepip/safepip.lock`. Repeat installs verify locally — no network for hash checks. Wheel changed since locking = blocked.
+First install stores the wheel's SHA-256 and per-file RECORD in `~/.pipsentinel/pipsentinel.lock`. Repeat installs verify locally — no network for hash checks. Wheel changed since locking = blocked.
 
 ---
 
@@ -307,7 +307,7 @@ graph TD
     CHECKS["checks.py\nall check functions\n9 pre-install · 2 post-install"]
     SANDBOX["sandbox.py\nrun_import_sandbox()\nsubprocess isolation"]
     HONEYPOT["honeypot.py\npopulate_honeypot_home()\nfake credentials"]
-    LOCKFILE["lockfile.py\nLockfileManager\n~/.safepip/safepip.lock"]
+    LOCKFILE["lockfile.py\nLockfileManager\n~/.pipsentinel/pipsentinel.lock"]
     REPORT["report.py\nSecurityReport\nhuman + JSON output"]
     PIP["pip subprocess\n--require-hashes"]
     PYPI["PyPI\nJSON API · Simple API\nwheel download"]
@@ -329,16 +329,16 @@ graph TD
 ### Module responsibilities
 
 ```
-safepip/
+pipsentinel/
 ├── checks.py     # all security checks: git tag, .pth scan, hash consensus,
 │                 # RECORD integrity, obfuscation, timestamp delta, provenance,
 │                 # post-install audit and RECORD diff
 ├── sandbox.py    # process-level import sandbox with audit hooks
 ├── honeypot.py   # fake credential generation + exfiltration sequence detection
-├── lockfile.py   # ~/.safepip/safepip.lock management
+├── lockfile.py   # ~/.pipsentinel/pipsentinel.lock management
 ├── installer.py  # orchestrates checks → pip install --require-hashes
 ├── report.py     # SecurityReport + human/JSON output
-└── cli.py        # safepip install / check / audit
+└── cli.py        # pipsentinel install / check / audit
 ```
 
 Every check is a pure function returning `CheckResult(name, passed, severity, message, detail)`. No global state. Each check can be imported and called independently.

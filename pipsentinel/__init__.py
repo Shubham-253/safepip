@@ -1,9 +1,9 @@
 """
-safepip — Hack-proof package installer with supply chain verification.
+pipsentinel — Hack-proof package installer with supply chain verification.
 
 Checks performed before any install:
   1. PyPI metadata fetch & version validation
-  2. Git tag ↔ PyPI release divergence detection (the LiteLLM attack vector)
+  2. Git tag ↔ PyPI release divergence detection
   3. .pth file scan inside the downloaded wheel (auto-execute malware vector)
   4. Provenance / Trusted Publisher attestation check
   5. Hash pinning — SHA-256 of every file in the wheel

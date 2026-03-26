@@ -254,7 +254,7 @@ def run_import_sandbox(
     -------
     SandboxResult
     """
-    with tempfile.TemporaryDirectory(prefix="safepip_sandbox_") as sandbox_dir:
+    with tempfile.TemporaryDirectory(prefix="pipsentinel_sandbox_") as sandbox_dir:
         sandbox_path = Path(sandbox_dir)
 
         # ── 1. Extract wheel into sandbox ────────────────────────────────
@@ -276,7 +276,7 @@ def run_import_sandbox(
         bait_files = populate_honeypot_home(fake_home, seed=package_name)
 
         # ── 3. Write probe script to temp file ───────────────────────────
-        probe_path = sandbox_path / "_safepip_probe.py"
+        probe_path = sandbox_path / "_pipsentinel_probe.py"
         probe_path.write_text(HONEYPOT_PROBE_SCRIPT)
 
         # ── 4. Build subprocess command — pass bait paths as argv[2] ─────
@@ -400,7 +400,7 @@ def check_sandbox_import(
         return CheckResult(
             name, False, "critical",
             f"SANDBOX TIMEOUT: import '{package_name}' did not complete in {timeout}s. "
-            f"This matches the fork-bomb behaviour caused by LiteLLM 1.82.8's .pth payload. "
+            f"This matches the fork-bomb behaviour of .pth payload attacks. "
             f"Do NOT install.",
             detail,
         )
