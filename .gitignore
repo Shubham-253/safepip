@@ -1,0 +1,10 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.benchmarks/
+dist/
+build/
+*.whl
+*.tar.gz
+*.pyc
+.DS_Store

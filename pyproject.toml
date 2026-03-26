@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safepip"
+version = "0.2.1"
+description = "Hack-proof pip: supply chain security checks + import sandbox before every install"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = []
+
+keywords = [
+  "security", "supply-chain", "pip", "pypi",
+  "sandbox", "audit", "package-manager", "devtools",
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Topic :: Security",
+  "Topic :: Software Development :: Build Tools",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+[project.scripts]
+safepip = "safepip.cli:main"
+
+[project.urls]
+Source    = "https://github.com/yourorg/safepip"
+Issues    = "https://github.com/yourorg/safepip/issues"
+Changelog = "https://github.com/yourorg/safepip/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["safepip*"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+
+[tool.setuptools.package-data]
+safepip = ["py.typed"]
