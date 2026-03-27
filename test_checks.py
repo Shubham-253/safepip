@@ -1,7 +1,15 @@
 """
 Tests for pipsentinel security checks.
 
-Run with: python -m pytest -v
+Unit tests (fast, no network):
+    python -m pytest test_checks.py -v
+
+Real-world smoke tests against actual PyPI packages (requires network, ~45s):
+    python -m pytest test_checks.py -v -m realworld
+    python -m pytest test_checks.py -v -m realworld -k "numpy"
+
+Run everything:
+    python -m pytest test_checks.py -v -m "not realworld or realworld"
 """
 
 from __future__ import annotations
@@ -14,11 +22,14 @@ import json
 import sys
 import tempfile
 import unittest
+import urllib.request
 import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 from pipsentinel.checks import (
     PackageMetadata,
@@ -32,6 +43,7 @@ from pipsentinel.checks import (
     check_obfuscated_code,
     check_release_timestamp_delta,
     check_post_install_record_diff,
+    fetch_package_metadata,
 )
 from pipsentinel.lockfile import (
     LockfileManager,
@@ -208,6 +220,26 @@ class TestPthFilesInWheel(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.severity, "critical")
         self.assertIn("testpkg_init.pth", str(result.detail))
+
+    def test_distutils_precedence_pth_not_flagged(self):
+        """distutils-precedence.pth from setuptools is allowlisted — must not be flagged."""
+        pth_content = (
+            b"import os; var = 'SETUPTOOLS_USE_DISTUTILS'; enabled = os.environ.get(var, 'local') == 'local';"
+            b" enabled and __import__('_distutils_hack').add_shim();\n"
+        )
+        wheel = make_wheel({
+            "setuptools/__init__.py": b"",
+            "distutils-precedence.pth": pth_content,
+        })
+        sha = hashlib.sha256(wheel).hexdigest()
+        meta = make_meta(wheel_urls=[{
+            "filename": "setuptools-75.8.2-py3-none-any.whl",
+            "url": "https://example.com/setuptools.whl",
+            "sha256": sha, "packagetype": "bdist_wheel",
+        }])
+        with patch("urllib.request.urlopen", return_value=self._mock_download(wheel)):
+            result = check_pth_files_in_wheel(meta)
+        self.assertTrue(result.passed, f"distutils-precedence.pth should be allowlisted: {result.message}")
 
     def test_sha256_mismatch_is_critical(self):
         wheel = make_wheel({"testpkg/__init__.py": b""})
@@ -549,6 +581,20 @@ class TestObfuscatedCodeRealWorldPatterns(unittest.TestCase):
         result = check_obfuscated_code(wheel, "numpy-1.26.4.whl")
         self.assertTrue(result.passed, f"Unexpected flag: {result.message}")
 
+    # ── flask / werkzeug patterns ──────────────────────────────────────────────
+
+    def test_flask_exec_compile_config_not_flagged(self):
+        """flask/config.py uses exec(compile(source, filename, 'exec')) to load config files."""
+        code = (
+            "def from_pyfile(self, filename, silent=False):\n"
+            "    with open(filename, 'rb') as f:\n"
+            "        source = f.read()\n"
+            "    exec(compile(source, filename, 'exec'), d)\n"
+        )
+        wheel = self._wheel({"flask/config.py": code.encode()})
+        result = check_obfuscated_code(wheel, "flask-3.1.0.whl")
+        self.assertTrue(result.passed, f"Unexpected flag: {result.message}")
+
     # ── packaging / pip patterns ───────────────────────────────────────────────
 
     def test_packaging_subprocess_version_check_not_flagged(self):
@@ -861,6 +907,127 @@ class TestBuildLockEntry(unittest.TestCase):
         wheel = make_wheel({"pkg/__init__.py": b""})
         entry = build_lock_entry("pkg", "1.0.0", wheel)
         self.assertEqual(entry.wheel_sha256, hashlib.sha256(wheel).hexdigest())
+
+
+# ── Real-world smoke tests (requires network) ─────────────────────────────────
+#
+# These download actual PyPI wheels and run checks against known-good packages.
+# A critical failure here means a false positive — a regression to fix before publishing.
+#
+# Run with:  pytest test_checks.py -v -m realworld
+# Skip with: pytest test_checks.py -v -m "not realworld"   (default CI behaviour)
+
+MUST_PASS = [
+    # HTTP / networking
+    ("requests",            "2.32.3"),
+    ("httpx",               "0.28.1"),
+    ("urllib3",             "2.3.0"),
+    ("certifi",             "2025.1.31"),
+    ("charset-normalizer",  "3.4.1"),
+    ("idna",                "3.10"),
+    # Data / science
+    ("numpy",               "1.26.4"),
+    ("pydantic",            "2.10.6"),
+    # CLI / formatting
+    ("click",               "8.1.8"),
+    ("rich",                "13.9.4"),
+    ("packaging",           "24.2"),
+    # Web
+    ("flask",               "3.1.0"),
+    ("werkzeug",            "3.1.3"),
+    ("jinja2",              "3.1.6"),
+    ("markupsafe",          "3.0.2"),
+    # Testing
+    ("pytest",              "8.3.5"),
+    ("pluggy",              "1.5.0"),
+    # Build / packaging infra
+    ("setuptools",          "75.8.2"),
+    ("wheel",               "0.45.1"),
+    ("pip",                 "25.0.1"),
+    # Async
+    ("anyio",               "4.9.0"),
+    ("sniffio",             "1.3.1"),
+    # Type / data
+    ("typing-extensions",   "4.12.2"),
+    ("annotated-types",     "0.7.0"),
+]
+
+
+def _download_wheel(meta) -> tuple[bytes, dict] | tuple[None, None]:
+    """Download the first .whl found for this package. Returns (bytes, entry) or (None, None)."""
+    wheel_entry = next(
+        (w for w in meta.wheel_urls if w["filename"].endswith(".whl")), None
+    )
+    if wheel_entry is None:
+        return None, None
+    with urllib.request.urlopen(wheel_entry["url"], timeout=60) as r:
+        return r.read(), wheel_entry
+
+
+@pytest.mark.realworld
+@pytest.mark.parametrize("package,version", MUST_PASS)
+def test_no_false_positive_critical(package, version):
+    """
+    Run the core checks against a known-good package wheel.
+    A critical failure here means a false positive — fix before publishing.
+    """
+    try:
+        meta = fetch_package_metadata(package, version)
+    except Exception as e:
+        pytest.skip(f"Could not fetch metadata for {package}: {e}")
+
+    wheel_bytes, wheel_entry = _download_wheel(meta)
+    if wheel_bytes is None:
+        pytest.skip(f"No wheel available for {package}=={meta.version}")
+
+    checks = [
+        check_obfuscated_code(wheel_bytes, wheel_entry["filename"]),
+        check_wheel_record_integrity(wheel_bytes, wheel_entry["filename"]),
+        check_pth_files_in_wheel(meta),
+    ]
+
+    critical = [c for c in checks if not c.passed and c.severity == "critical"]
+    assert not critical, (
+        f"\n{package}=={meta.version} ({wheel_entry['filename']}) has FALSE POSITIVE critical failures:\n"
+        + "\n".join(f"  [{c.name}] {c.message}" for c in critical)
+    )
+
+
+@pytest.mark.realworld
+@pytest.mark.parametrize("package,version", MUST_PASS)
+def test_git_tag_exists(package, version):
+    """
+    Every package in MUST_PASS should have a git tag matching its PyPI version.
+    Allowed to warn — only fails if severity == critical.
+    """
+    try:
+        meta = fetch_package_metadata(package, version)
+    except Exception as e:
+        pytest.skip(f"Could not fetch metadata: {e}")
+
+    result = check_git_tag_divergence(meta)
+
+    assert result.severity != "critical", (
+        f"{package}=={meta.version} git tag check is critical: {result.message}"
+    )
+
+
+@pytest.mark.realworld
+@pytest.mark.parametrize("package,version", MUST_PASS)
+def test_hash_consensus(package, version):
+    """
+    Multi-source hash must agree for every package.
+    Disagreement = CDN or API tampering — always a real failure, not a false positive.
+    """
+    try:
+        meta = fetch_package_metadata(package, version)
+    except Exception as e:
+        pytest.skip(f"Could not fetch metadata: {e}")
+
+    result = check_multi_source_hash_consensus(meta)
+    assert result.passed, (
+        f"{package}=={meta.version} hash consensus failed: {result.message}"
+    )
 
 
 if __name__ == "__main__":

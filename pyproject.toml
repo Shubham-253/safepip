@@ -42,6 +42,10 @@ include = ["pipsentinel*"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
+addopts = "-m 'not realworld'"
+markers = [
+    "realworld: smoke tests that download real PyPI wheels (require network, ~45s)",
+]
 
 [tool.setuptools.package-data]
 pipsentinel = ["py.typed"]
