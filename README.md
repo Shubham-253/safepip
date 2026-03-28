@@ -4,7 +4,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#zero-dependencies)
-[![Tests](https://img.shields.io/badge/tests-76%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-148%20passing-brightgreen.svg)](#testing)
 [![Version](https://img.shields.io/badge/version-0.2.5-blue.svg)](#)
 
 ---
@@ -227,7 +227,7 @@ Queries the GitHub Tags API and checks whether the PyPI version maps to any tag 
 Downloads the wheel into memory, verifies its SHA-256, then inspects every `.pth` file for lines starting with `import`. Python's `site` module executes these on every interpreter startup — including `pip`, `python -c`, and IDE language servers. A `.pth` file with `import` has essentially no legitimate use.
 
 ### Obfuscated code detection
-Scans every `.py` and `.pth` file using both regex and Python's own `ast` module. Catches `exec(base64.b64decode(...))`, double-encoded blobs, `eval(compile(...))`, large embedded base64 payloads, subprocess self-spawning in `.pth` files, and `exec()` with computed non-literal arguments. Tuned to avoid false positives on legitimate patterns like `__import__(package)` in loops.
+Scans every `.py` and `.pth` file using both regex and Python's own `ast` module. Catches `exec(base64.b64decode(...))`, double-encoded blobs, large embedded base64 payloads, subprocess self-spawning in `.pth` files, and `exec()` with computed non-literal arguments. Tuned to avoid false positives on legitimate patterns — `eval()` is not flagged (too common in template engines and test frameworks), and `exec(compile(...))` is not flagged (used by flask and werkzeug for config loading).
 
 ### Multi-source hash consensus
 Three independent paths to the same SHA-256 — PyPI's JSON API, PyPI's Simple API (PEP 503), and a direct download-and-hash. All must agree. A MITM or compromised CDN would serve a different hash via one path.
