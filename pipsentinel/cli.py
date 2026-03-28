@@ -69,7 +69,12 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 
 def cmd_sync(args: argparse.Namespace) -> int:
-    """Check all packages in uv.lock (full 8-check suite), then run uv sync if all pass."""
+    """Check all packages in uv.lock (metadata checks), then run uv sync if all pass.
+
+    Runs: hash consensus, git tag divergence, .pth scan, provenance.
+    Wheel download checks (RECORD, obfuscation, sandbox) belong to install/check
+    — running them on every uv sync would download hundreds of MB per run.
+    """
     try:
         import tomllib
     except ImportError:
@@ -108,29 +113,12 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
         report = SecurityReport(package=meta.name, version=meta.version)
 
-        report.results.append(check_multi_source_hash_consensus(meta))
-
-        wheel_entry = next((w for w in meta.wheel_urls if w["filename"].endswith(".whl")), None)
-        wheel_bytes = None
-        if wheel_entry:
-            try:
-                import urllib.request
-                with urllib.request.urlopen(wheel_entry["url"], timeout=30) as resp:
-                    wheel_bytes = resp.read()
-            except Exception as e:
-                print(f"  ⚠️  Could not download wheel for {name}=={version}: {e}")
-
-        if wheel_bytes and wheel_entry:
-            report.results.append(check_wheel_record_integrity(wheel_bytes, wheel_entry["filename"]))
-            report.results.append(check_obfuscated_code(wheel_bytes, wheel_entry["filename"]))
-            report.results.append(check_pth_files_in_wheel(meta))
-            report.results.append(check_sandbox_import(wheel_bytes, meta.name, wheel_entry["filename"]))
-        else:
-            report.results.append(check_pth_files_in_wheel(meta))
-
-        report.results.append(check_git_tag_divergence(meta))
-        report.results.append(check_release_timestamp_delta(meta))
-        report.results.append(check_pypi_provenance(meta))
+        report.results = [
+            check_multi_source_hash_consensus(meta),
+            check_git_tag_divergence(meta),
+            check_pth_files_in_wheel(meta),
+            check_pypi_provenance(meta),
+        ]
 
         if not args.quiet:
             status = "✅" if report.safe_to_install else "🚨"

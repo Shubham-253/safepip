@@ -55,6 +55,7 @@ pipsentinel install numpy==1.26.4
 pipsentinel install -r requirements.txt
 
 # Audit uv.lock packages before running uv sync
+# Runs: hash consensus, git tag divergence, .pth scan, provenance (no wheel download)
 pipsentinel sync
 pipsentinel sync --lockfile path/to/uv.lock
 pipsentinel sync --force          # run uv sync even if checks fail

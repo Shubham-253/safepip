@@ -7,7 +7,7 @@ All notable changes to pipsentinel are documented here.
 ## [0.2.5] — 2026-03-28
 
 ### Changed
-- `pipsentinel sync` now runs the full 8-check suite per package (was previously 3 checks only) — same depth as `install` and `check`
+- `pipsentinel sync` now runs 4 metadata checks per package: hash consensus, git tag divergence, `.pth` scan, provenance — no wheel download (downloading all wheels in a lock file on every `uv sync` would be hundreds of MB)
 - Real-world smoke tests merged into `test_checks.py` — all 148 tests run together, no separate test file or skip markers
 
 ### Fixed
