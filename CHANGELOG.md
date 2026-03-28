@@ -4,6 +4,13 @@ All notable changes to pipsentinel are documented here.
 
 ---
 
+## [0.2.6] — 2026-03-28
+
+### Fixed
+- Version bump to resolve PyPI upload conflict (0.2.5 artifact already existed on PyPI)
+
+---
+
 ## [0.2.5] — 2026-03-28
 
 ### Changed
